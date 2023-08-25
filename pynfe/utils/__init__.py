@@ -1,20 +1,19 @@
 # *-* encoding: utf-8 *-*
 
-import os
 import codecs
+import os
 from unicodedata import normalize
+from signxml import XMLSigner
 
 try:
-    from lxml import etree
+    from lxml import etree  # noqa: F401
 except ImportError:
-    raise Exception('Falhou ao importar lxml/ElementTree')
-
-from io import StringIO
+    raise Exception("Falhou ao importar lxml/ElementTree")
 
 try:
     from . import flags
 except ImportError:
-    raise Exception('Falhou ao importar flags')
+    raise Exception("Falhou ao importar flags")
 
 
 # @memoize
@@ -25,39 +24,39 @@ def so_numeros(texto) -> str:
     :param texto: String ou Inteiro a ser analisada
     :return: String somente com números
     """
-    return ''.join(filter(str.isdigit, str(texto)))
+    return "".join(filter(str.isdigit, str(texto)))
 
 
 # @memoize
 def obter_pais_por_codigo(codigo):
     # TODO
-    if codigo == '1058':
-        return 'Brasil'
+    if codigo == "1058":
+        return "Brasil"
 
-CAMINHO_DATA = os.path.join(os.path.dirname(
-    os.path.abspath(__file__)), '..', 'data')
-CAMINHO_MUNICIPIOS = os.path.join(CAMINHO_DATA, 'MunIBGE')
+
+CAMINHO_DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
+CAMINHO_MUNICIPIOS = os.path.join(CAMINHO_DATA, "MunIBGE")
 CARACTERS_ACENTUADOS = {
-    ord(u'á'): u'a',
-    ord(u'â'): u'a',
-    ord(u'à'): u'a',
-    ord(u'ã'): u'a',
-    ord(u'é'): u'e',
-    ord(u'ê'): u'e',
-    ord(u'í'): u'i',
-    ord(u'ó'): u'o',
-    ord(u'õ'): u'o',
-    ord(u'ô'): u'o',
-    ord(u'ú'): u'u',
-    ord(u'ç'): u'c',
-    ord(u"'"): u'',
+    ord("á"): "a",
+    ord("â"): "a",
+    ord("à"): "a",
+    ord("ã"): "a",
+    ord("é"): "e",
+    ord("ê"): "e",
+    ord("í"): "i",
+    ord("ó"): "o",
+    ord("õ"): "o",
+    ord("ô"): "o",
+    ord("ú"): "u",
+    ord("ç"): "c",
+    ord("'"): "",
 }
 
 
 # @memoize
 def normalizar_municipio(municipio):
     if not isinstance(municipio, str):
-        municipio = municipio.decode('utf-8')
+        municipio = municipio.decode("utf-8")
 
     return municipio.lower().translate(CARACTERS_ACENTUADOS).upper()
 
@@ -70,7 +69,7 @@ def carregar_arquivo_municipios(uf, reverso=False):
         except ValueError:
             uf = flags.CODIGOS_ESTADOS[uf.upper()]
 
-    caminho_arquivo = os.path.join(CAMINHO_MUNICIPIOS, 'MunIBGE-UF%s.txt' % uf)
+    caminho_arquivo = os.path.join(CAMINHO_MUNICIPIOS, "MunIBGE-UF%s.txt" % uf)
 
     # Carrega o conteudo do arquivo
     fp = codecs.open(caminho_arquivo, "r", "utf-8-sig")
@@ -80,7 +79,7 @@ def carregar_arquivo_municipios(uf, reverso=False):
     municipios_dict = {}
 
     for linha in linhas:
-        codigo, municipio = linha.split('\t')
+        codigo, municipio = linha.split("\t")
         codigo = codigo.strip()
         municipio = municipio.strip()
 
@@ -96,7 +95,10 @@ def carregar_arquivo_municipios(uf, reverso=False):
 def obter_codigo_por_municipio(municipio, uf):
     # TODO: fazer UF ser opcional
     municipios = carregar_arquivo_municipios(uf, True)
-    return municipios[normalizar_municipio(municipio)]
+    municipio_normalizado = normalizar_municipio(municipio)
+    if municipio_normalizado not in municipios:
+        raise ValueError("Município inválido %s" % municipio)
+    return municipios[municipio_normalizado]
 
 
 # @memoize
@@ -113,13 +115,13 @@ def obter_municipio_por_codigo(codigo, uf, normalizado=False):
 
 # @memoize
 def obter_municipio_e_codigo(dados, uf):
-    '''Retorna código e município
+    """Retorna código e município
     municipio_ou_codigo - espera receber um dicionário no formato:
         {codigo: 121212, municipio: u'municipio'}
-    '''
+    """
 
-    cod = dados.get('codigo', '')
-    mun = normalizar_municipio(dados.get('municipio', ''))
+    cod = dados.get("codigo", "")
+    mun = normalizar_municipio(dados.get("municipio", ""))
     try:
         cod = int(cod)
     except ValueError:
@@ -130,9 +132,10 @@ def obter_municipio_e_codigo(dados, uf):
     municipio = obter_municipio_por_codigo(cod, uf, normalizado=True)
     return cod, municipio
 
+
 # @memoize
 def extrair_tag(root):
-    return root.tag.split('}')[-1]
+    return root.tag.split("}")[-1]
 
 
 def formatar_decimal(dec):
@@ -151,4 +154,12 @@ def obter_uf_por_codigo(codigo_uf):
 
 
 def remover_acentos(txt):
-    return normalize('NFKD', txt).encode('ASCII', 'ignore').decode('ASCII')
+    return normalize("NFKD", txt).encode("ASCII", "ignore").decode("ASCII")
+
+
+class CustomXMLSigner(XMLSigner):
+    def __init__(self, method, signature_algorithm, digest_algorithm, c14n_algorithm):
+        super().__init__(method, signature_algorithm, digest_algorithm, c14n_algorithm)
+
+    def check_deprecated_methods(self):
+        pass
